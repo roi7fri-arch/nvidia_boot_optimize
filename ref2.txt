@@ -1,0 +1,169 @@
+���                                                                                         
+����                                                                                         
+    ��                                                                                       
+      hwwdt_init: WDT boot cfg 0x710010 sts 0x10                                             
+bpmp: socket 0                                                                               
+bpmp: base binary md5 is 68f126a8abf720445275b10ce9dac080                                    
+bpmp: combined binary md5 is 030ffe301d1db1d01cb6fae98e5e988b                                
+bpmp: firmware tag is 030ffe301d1db1d01cb6-68f126a8abf                                       
+initialized vwdt                                                                             
+initialized mail_early                                                                       
+initialized fuse                                                                             
+��[     0.319525] Camera-FW on t234-rce-safe started                                         
+��initialized vfrel                                                                          
+initialized adc                                                                              
+fmon_populate_monitors: found 199 m��TCU early console enabled.
+��onitors
+initialized fmon
+initialized mc
+initialized reset
+initialized uphy_early
+initialized emc_early
+initialized pm
+465 clocks registered
+initialized clk_mach
+initialized clk_cal_early
+initialized clk_mach_early_config
+initialized io_dpd
+initialized soctherm
+initialized regime
+initialized i2c
+vrmon_dt_init: vrmon node not found
+vrmon_chk_boot_state: found 0 rail monitors
+initialized vrmon
+initialized regulator
+��
+  DCE Started
+DCE_R5_Init
+MPU enabled
+DCE_SW_Init
+��initialized avfs_clk_platform
+initialized powergate
+initialized dvs
+initialized clk_mach_config
+initialized suspend
+initialized strap
+initialized mce_dbell
+initialized emc
+initialized emc_mrq
+initialized clk_cal
+initialized uphy_dt
+initialized uphy_mrq
+HSIO UPHY reset has been de-asserted 0x0
+initialized uphy
+initialized pg_late
+initialized pg_mrq_init
+swdtimer_init: reg polling start w period 47 ms
+initialized swdtimer
+initialized hwwdt_late
+initialized bwmgr
+initialized thermal_host_trip
+initialized thermal_mrq
+initialized oc_mrq
+initialized reset_mrq
+initialized mail_mrq
+initialized fmon_mrq
+initialized clk_mrq
+initialized avfs_mrq
+initialized i2c_mrq
+initialized tag_mrq
+initialized bwmgr_mrq
+initialized console_mrq
+missing prod DT calibration data for 199 fmons
+initialized clk_sync_fmon_post
+initialized clk_cal_late
+initialized noc_late
+initialized cvc
+initialized avfs_clk_mach_post
+initialized avfs_clk_platform_post
+initialized cvc_late
+initialized rm
+initialized console_late
+handling unreferenced clks
+enable can1_core
+enable can1_host
+enable can2_core
+enable can2_host
+enable pwm3
+enable sdmmc4_axicif
+enable mss_encrypt
+enable maud
+enable pllg_ref
+enable dsi_core
+enable aza_2xbit
+enable xusb_ss
+enable xusb_fs
+enable xusb_falcon
+enable xusb_core_mux
+enable dsi_lp
+clk_check_max_rate: pex1_c6_core rate 500000000 > max 250000000
+clk_check_max_rate: pex2_c7_core rate 500000000 > max 250000000
+clk_check_max_rate: pex2_c8_core rate 500000000 > max 250000000
+clk_check_max_rate: pex2_c9_core rate 500000000 > max 250000000
+clk_check_max_rate: pex2_c10_core rate 500000000 > max 250000000
+clk_check_max_rate: pex0_c0_core rate 500000000 > max 250000000
+clk_check_max_rate: pex0_c1_core rate 500000000 > max 250000000
+clk_check_max_rate: pex0_c2_core rate 500000000 > max 250000000
+clk_check_max_rate: pex0_c3_core rate 500000000 > max 250000000
+clk_check_max_rate: pex0_c4_core rate 500000000 > m��[     0.579867] Camer��ax 250000000
+clk_check_max_rate: pex1_c5_core rate 500��a-FW on t234-rce-safe��000000 > max 250000000
+initialized clk_mach_post
+initialized pg_post
+initia�� ready SHA1=04ea8699 (crt 12.412 ms, total boot 273.824 ms)
+��lized regulator_post
+initialized profile
+initialized mrq
+initialized patrol_scrubber
+initialized cactmon
+initialized extras_post
+bpmp: init complete
+��I/TC: 
+��Admin Task Init
+Admin Task Init complete
+Print Task Init
+RM Task Init
+Admin Task Started
+DCE SC7 SHA Disabled
+RM Task Started
+RM Task Running
+Print Task Started
+Print Task Running
+DCE: FW Boot Complete
+Admin Task Running
+��I/TC: Non-secure external DT found
+I/TC: OP-TEE version: 4.2 (gcc version 11.3.0 (Buildroot 2022.08)) #2 Fri Jan 16 03:29:23 UTC 2026 aarch64
+I/TC: WARNING: This OP-TEE configuration might be insecure!
+I/TC: WARNING: Please check https://optee.readthedocs.io/en/latest/architecture/porting_guidelines.html
+I/TC: Primary CPU initializing
+I/TC: Test OEM keys are being used. This is insecure for shipping products!
+I/TC: fTPM ID is not enabled.
+I/TC: ftpm-helper PTA: fTPM DT or EKB is not available. fTPM provisioning is not supported.
+I/TC: Primary CPU switching to normal world boot
+��
+  t23x_midboot UEFI firmware (version r36.5-79ad0c1-dirty built on 2026-05-17T16:47:08+03:00)
+
+
+
+
+��I/TC: Reserved shared memory is disabled
+I/TC: Dynamic shared memory is enabled
+I/TC: Normal World virtualization support is disabled
+I/TC: Asynchronous notifications are disabled
+
+UpdatePeCoffPermissions: Mapping section 1 of image at 0x406FC000 with RW-XN permissions and size 0x1000
+
+GetDeviceTypeRegions: 1 qspi0 regions present
+MmInstallProtocolInterface: 01458542-64B6-42D9-808C-544254D88FC6 40701420
+MmInstallProtocolInterface: 40930D29-595C-4588-B692-16E74A5B3C75 407012D0
+UpdatePeCoffPermissions: Mapping section 1 of image at 0x406F3000 with RW-XN permissions and size 0x1000
+
+NorFlashInitialise: Using ChipSelect 0
+MmInstallProtocolInterface: C3FF8100-150D-4744-A68B-19A5435D5DAD 406EBE30
+MmInstallProtocolInterface: 40930D29-595C-4588-B692-16E74A5B3C75 40701110
+��MmInstallProtocolInterface: 7CE88FB3-4BD7-4679-87A8-A8D8DEE50D2B 0
+MmInstallProtocolInterface: 27ABF055-B1B8-4C26-8048-748F37BAA2DF 0
+��Roi debug
+Roi debug
+Seeding 256 bits and crediting
+Saving 256 bits of creditable seed for next boot
+

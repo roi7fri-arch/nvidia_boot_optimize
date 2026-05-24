@@ -1,0 +1,21 @@
+/*
+ * mb1-mb2-loglevel.dtsi — Disable MB1/MB2 firmware log output
+ *
+ * Apply to: Linux_for_Tegra/bootloader/tegra234-mb1-bct-misc-common.dtsi
+ * Method: Set log_level to 0 to suppress all UART output from MB1/MB2
+ *
+ * This eliminates the UART bottleneck during early firmware boot.
+ * Per NVIDIA Boot Time Optimization guide for Jetson Orin Nano.
+ *
+ * Usage:
+ *   Replace the log_level value in the target file:
+ *     sed -i 's/log_level = <[0-9]*>/log_level = <0>/' \
+ *       Linux_for_Tegra/bootloader/tegra234-mb1-bct-misc-common.dtsi
+ */
+
+/ {
+    misc {
+        /* 0 = no logs, 1 = errors only, 2 = warnings, 3 = info, 4 = debug */
+        log_level = <0>;
+    };
+};

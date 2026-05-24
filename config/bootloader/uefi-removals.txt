@@ -1,0 +1,73 @@
+# uefi-removals.txt — UEFI components to strip for fast boot
+#
+# Target files to patch in L4T UEFI source:
+#   - Silicon/NVIDIA/NVIDIA.common.dsc.inc
+#   - Silicon/NVIDIA/NVIDIA.fvmain.fdf.inc
+#   - Platform/NVIDIA/Jetson/Jetson.fdf
+#   - Platform/NVIDIA/Jetson/Jetson.dsc.inc
+#
+# Reference: NVIDIA Boot Time Optimization guide (r35.6.1)
+# Proven: Friend achieved ~2s UEFI time with these removals.
+#
+# Format: [category] component_path
+# Lines starting with # are comments.
+
+# ─── Networking Stack (PXE boot not needed — we boot from NVMe) ──────────────
+
+[network-libs] NetworkPkg/Library/DxeNetLib/DxeNetLib.inf
+[network-libs] NetworkPkg/Library/DxeDpcLib/DxeDpcLib.inf
+[network-libs] NetworkPkg/Library/DxeUdpIoLib/DxeUdpIoLib.inf
+[network-libs] NetworkPkg/Library/DxeIpIoLib/DxeIpIoLib.inf
+[network-libs] NetworkPkg/Library/DxeTcpIoLib/DxeTcpIoLib.inf
+[network-libs] NetworkPkg/Library/DxeHttpIoLib/DxeHttpIoLib.inf
+[network-libs] NetworkPkg/Library/DxeHttpLib/DxeHttpLib.inf
+
+[network-drivers] NetworkPkg/DpcDxe/DpcDxe.inf
+[network-drivers] NetworkPkg/ArpDxe/ArpDxe.inf
+[network-drivers] NetworkPkg/Dhcp4Dxe/Dhcp4Dxe.inf
+[network-drivers] NetworkPkg/Ip4Dxe/Ip4Dxe.inf
+[network-drivers] NetworkPkg/MnpDxe/MnpDxe.inf
+[network-drivers] NetworkPkg/SnpDxe/SnpDxe.inf
+[network-drivers] NetworkPkg/VlanConfigDxe/VlanConfigDxe.inf
+[network-drivers] NetworkPkg/Mtftp4Dxe/Mtftp4Dxe.inf
+[network-drivers] NetworkPkg/TcpDxe/TcpDxe.inf
+[network-drivers] NetworkPkg/Udp4Dxe/Udp4Dxe.inf
+[network-drivers] NetworkPkg/UefiPxeBcDxe/UefiPxeBcDxe.inf
+[network-drivers] NetworkPkg/IScsiDxe/IScsiDxe.inf
+[network-drivers] NetworkPkg/Ip6Dxe/Ip6Dxe.inf
+[network-drivers] NetworkPkg/Dhcp6Dxe/Dhcp6Dxe.inf
+[network-drivers] NetworkPkg/Udp6Dxe/Udp6Dxe.inf
+[network-drivers] NetworkPkg/Mtftp6Dxe/Mtftp6Dxe.inf
+
+[network-tls] NetworkPkg/TlsDxe/TlsDxe.inf
+[network-tls] NetworkPkg/TlsAuthConfigDxe/TlsAuthConfigDxe.inf
+[network-tls] NetworkPkg/DnsDxe/DnsDxe.inf
+[network-tls] NetworkPkg/HttpDxe/HttpDxe.inf
+[network-tls] NetworkPkg/HttpUtilitiesDxe/HttpUtilitiesDxe.inf
+[network-tls] NetworkPkg/HttpBootDxe/HttpBootDxe.inf
+
+# ─── SCSI/SATA Stack (NVMe is PCIe-native, not SCSI) ────────────────────────
+
+[scsi] MdeModulePkg/Bus/Scsi/ScsiBusDxe/ScsiBusDxe.inf
+[scsi] MdeModulePkg/Bus/Scsi/ScsiDiskDxe/ScsiDiskDxe.inf
+[scsi] MdeModulePkg/Bus/Ata/AtaBusDxe/AtaBusDxe.inf
+[scsi] MdeModulePkg/Bus/Ata/AtaAtapiPassThru/AtaAtapiPassThru.inf
+[scsi] MdeModulePkg/Bus/Pci/SataControllerDxe/SataControllerDxe.inf
+
+# ─── Logo/Splash (headless — no display connected) ──────────────────────────
+
+[logo] MdeModulePkg/Library/BootLogoLib/BootLogoLib.inf
+[logo] Silicon/NVIDIA/Drivers/Logo/LogoDxe.inf
+# Also remove the FREEFORM logo assets section from .fdf files
+
+# ─── Ethernet in UEFI (only needed in Linux, not for UEFI boot) ─────────────
+
+[ethernet] Silicon/NVIDIA/Drivers/EqosDeviceDxe/EqosDeviceDxe.inf
+[ethernet] Drivers/Realtek/Bus/Pcie/PcieNetworking/RtkUndiDxe.inf
+
+# ─── UEFI Shell (not needed in production boot) ─────────────────────────────
+
+[shell] ShellPkg/Library/UefiShellNetwork1CommandsLib/UefiShellNetwork1CommandsLib.inf
+[shell] ShellPkg/Library/UefiShellNetwork2CommandsLib/UefiShellNetwork2CommandsLib.inf
+[shell] ShellPkg/DynamicCommand/TftpDynamicCommand/TftpDynamicCommand.inf
+[shell] ShellPkg/DynamicCommand/DpDynamicCommand/DpDynamicCommand.inf

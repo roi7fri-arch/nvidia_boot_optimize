@@ -1,0 +1,39 @@
+/*
+ * bpmp-serial-strip.dts — Strip BPMP serial node for boot time reduction
+ *
+ * Per NVIDIA Boot Time Optimization guide:
+ * Decompile tegra234-bpmp-3767-0000-a02-3509-a02.dtb, empty the /serial
+ * node contents, then recompile.
+ *
+ * This eliminates BPMP combined UART initialization time.
+ *
+ * Steps to apply:
+ *   1. Decompile:
+ *      dtc -I dtb -O dts -o bpmp-original.dts \
+ *        Linux_for_Tegra/bootloader/t186ref/tegra234-bpmp-3767-0000-a02-3509-a02.dtb
+ *
+ *   2. Edit bpmp-original.dts: delete all contents inside the /serial { } node
+ *      (keep the node itself, just empty it):
+ *
+ *      serial {
+ *      };
+ *
+ *   3. Recompile:
+ *      dtc -I dts -O dtb -o tegra234-bpmp-3767-0000-a02-3509-a02.dtb bpmp-original.dts
+ *
+ *   4. Copy back to L4T:
+ *      cp tegra234-bpmp-3767-0000-a02-3509-a02.dtb \
+ *        Linux_for_Tegra/bootloader/t186ref/
+ *
+ * The sed one-liner approach (risky but fast):
+ *   dtc -I dtb -O dts tegra234-bpmp-*.dtb | \
+ *     sed '/^\tserial {/,/^\t};/{/^\tserial {/!{/^\t};/!d}}' | \
+ *     dtc -I dts -O dtb -o tegra234-bpmp-*.dtb
+ */
+
+/* This is a reference showing what the emptied serial node looks like */
+/ {
+    serial {
+        /* intentionally empty — all sub-nodes and properties removed */
+    };
+};

@@ -1,0 +1,82 @@
+secure external DT found
+��Admin Task Init
+Admin Task Init complete
+Print Task Init
+RM Task Init
+Admin Task Started
+DCE SC7 SHA Disabled
+RM Task Started
+RM Task Running
+Print Task Started
+Print Task Running
+DCE: FW Boot Complete
+Admin Task Running
+��I/TC: OP-TEE version: 4.2 (gcc version 13.4.0 (GCC)) #1 Fri Jan 16 03:41:16 UTC 2026 aarch64
+I/TC: WARNING: This OP-TEE configuration might be insecure!
+I/TC: WARNING: Please check https://optee.readthedocs.io/en/latest/architecture/porting_guidelines.html
+I/TC: Primary CPU initializing
+I/TC: Test OEM keys are being used. This is insecure for shipping products!
+I/TC: Primary CPU switching to normal world boot
+��
+  t23x_general UEFI firmware (version v36.5.0 built on 2025-11-18T22:45:11+00:00)
+
+
+
+
+��I/TC: Reserved shared memory is disabled
+I/TC: Dynamic shared memory is enabled
+I/TC: Normal World virtualization support is disabled
+I/TC: Asynchronous notifications are disabled
+
+UpdatePeCoffPermissions: Mapping section 1 of image at 0x406FC000 with RW-XN permissions and size 0x1000
+
+GetDeviceTypeRegions: 1 qspi0 regions present
+MmInstallProtocolInterface: 01458542-64B6-42D9-808C-544254D88FC6 40701420
+MmInstallProtocolInterface: 40930D29-595C-4588-B692-16E74A5B3C75 407012D0
+UpdatePeCoffPermissions: Mapping section 1 of image at 0x406F3000 with RW-XN permissions and size 0x1000
+
+NorFlashInitialise: Using ChipSelect 0
+MmInstallProtocolInterface: C3FF8100-150D-4744-A68B-19A5435D5DAD 406ECE30
+MmInstallProtocolInterface: 40930D29-595C-4588-B692-16E74A5B3C75 40701110
+UpdatePeCoffPermissions: Mapping section 1 of image at 0x406E9000 with RW-XN permissions and size 0x1000
+
+GetDeviceTypeRegions: 1 scratch-t234 regions present
+FVBNORInitialize:Using Reserved Partition 66781184 65536 for VarStore Integrity
+FVBNORInitialize: VariableOffset 65536000 VariableSize 262144FTW Offset 65798144 FTW Size 524288MmInstallProtocolInterface: 49DAE0B50
+MmInstallProtocolInterface: D326D041-BD31-4C01-B5A8-628BE87F0653 406EC860
+MmInstallProtocolInterface: D326D041-BD31-4C01-B5A8-628BE87F0653 406EC8F8
+MmInstallProtocolInterface: D326D041-BD31-4C01-B5A8-628BE87F0653 406EC990
+MmInstallProtocolInterface: D1A86E3F-0707-4C35-83CD-DC2C29C891A3 0
+UpdatePeCoffPermissions: Mapping section 1 of image at 0x40608000 with RW-XN permissions and size 0x1000
+UpdatePeCoffPermissions: Mapping section 1 of image at 0x40600000 with RW-XN permissions and size 0x1000
+MmInstallProtocolInterface: 3868FC3B-7E45-43A7-906C-4BA47DE1754D 405B6020
+UpdatePeCoffPermissions: Mapping section 1 of image at 0x405B3000 with RW-XN permissions and size 0x1000
+UpdatePeCoffPermissions: Mapping section 1 of image at 0x405A7000 with RW-XN permissions and size 0x1000
+
+GetDeviceTypeRegions: 1 qspi0 regions present
+GetDeviceTypeRegions: 1 scratch-t234 regions present
+UpdatePeCoffPermissions: Mapping section 1 of image at 0x4059C000 with RW-XN permissions and size 0x1000
+MmInstallProtocolInterface: 26EEB3DE-B689-492E-80F0-BE8BD7DA4BA7 4059C0A0
+UpdatePeCoffPermissions: Mapping section 1 of image at 0x4056A000 with RW-XN permissions and size 0x28000
+MmInstallProtocolInterface: ED32D533-99E6-4209-9CC0-2D72CDD998A7 4056A978
+Var SecureBoot Doesn't exist Not Found
+Var PK Doesn't exist Not Found
+Var KEK Doesn't exist Not Found
+Var db Doesn't exist Not Found
+Var dbx Doesn't exist Not Found
+I/TC: WARNING: Test UEFI variable auth key is being used !
+I/TC: WARNING: UEFI variable protection is not fully enabled !
+MmFvbSmmVarReady: VarStore validation Succesful
+MmInstallProtocolInterface: B0D8F3C1-B7DE-4C11-BC89-2FB562C8C411 4056A950
+UpdatePeCoffPermissions: Mapping section 1 of image at 0x4043D000 with RW-XN permissions and size 0x1D000
+
+GetDeviceTypeRegions: 1 scratch-t234 regions present
+GetDeviceTypeRegions: 1 scratch-t234 regions present
+MmInstallProtocolInterface: 24E70042-D5C5-4260-8C39-0AD3AA32E93D 0
+MmInstallProtocolInterface: 7CE88FB3-4BD7-4679-87A8-A8D8DEE50D2B 0
+MmInstallProtocolInterface: 27ABF055-B1B8-4C26-8048-748F37BAA2DF 0
+I/TC: Reserved shared memory is disabled
+I/TC: Dynamic shared memory is enabled
+I/TC: Normal World virtualization support is disabled
+I/TC: Asynchronous notifications are disabled
+

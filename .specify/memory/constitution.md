@@ -1,50 +1,104 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report:
+- Version change: 0.0.0 → 1.0.0
+- Modified principles: N/A (initial creation)
+- Added sections: Core Principles (4), Development Workflow, Governance
+- Removed sections: None
+- Templates requiring updates:
+  - .specify/templates/plan-template.md ✅ (already has Constitution Check gate and Performance Goals field)
+  - .specify/templates/spec-template.md ✅ (already has acceptance scenarios, edge cases, functional requirements)
+  - .specify/templates/tasks-template.md ✅ (already supports test-first task ordering and phased delivery)
+- Follow-up TODOs: None
+-->
+
+# NVIDIA Boot Optimize Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Code Quality
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+All code MUST be clear, maintainable, and well-structured.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+- Every module MUST have a single, well-defined responsibility
+- Shell scripts MUST pass ShellCheck with zero warnings
+- Python code MUST pass flake8/ruff with zero errors
+- All functions MUST have explicit input/output contracts
+  (parameters documented, return values typed or described)
+- Dead code MUST be removed; commented-out code is not permitted
+  in committed files
+- Magic numbers and hard-coded paths MUST be extracted into
+  named constants or configuration variables
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### II. Testing Standards
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+All changes MUST be validated by automated tests before merge.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+- Every new feature MUST include at least one integration test
+  that exercises the end-to-end boot path on target hardware
+  or an emulated environment
+- Unit tests MUST cover all utility functions and parsers
+- Tests MUST be deterministic — no reliance on timing, network,
+  or uncontrolled external state
+- Regression tests MUST be added for every confirmed bug fix
+- Test names MUST describe the scenario under test, not the
+  implementation detail (e.g., `test_boot_completes_under_5s`
+  not `test_function_returns_true`)
+- CI MUST block merge on any test failure
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### III. User Experience Consistency
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+All user-facing output and interfaces MUST be predictable and
+uniform across the project.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+- CLI tools MUST use consistent argument naming conventions
+  (`--timeout`, `--verbose`, `--device`) across all scripts
+- Error messages MUST include: what failed, why it failed, and
+  a suggested corrective action
+- Progress output MUST use a uniform format (timestamped lines
+  to stdout, errors to stderr)
+- Configuration MUST follow a single canonical format (YAML or
+  environment variables) — never mix formats within a feature
+- Documentation MUST be updated in the same commit as the code
+  change it describes
+
+### IV. Performance Requirements
+
+Boot time optimization is the primary deliverable; every change
+MUST be measured against performance baselines.
+
+- A performance baseline MUST be established and recorded before
+  any optimization work begins
+- Every optimization MUST include before/after timing measurements
+  with methodology documented
+- Changes that regress boot time by more than 5% MUST NOT be
+  merged without explicit justification and approval
+- Performance-critical paths MUST be profiled, not guessed at;
+  optimizations MUST target measured bottlenecks
+- Target boot time thresholds MUST be defined per device/platform
+  and tracked in CI where feasible
+
+## Development Workflow
+
+- Feature work MUST happen on dedicated branches
+- Commits MUST be atomic — one logical change per commit
+- Commit messages MUST follow Conventional Commits format
+  (`feat:`, `fix:`, `perf:`, `docs:`, `test:`, `chore:`)
+- Code review MUST verify compliance with all four principles
+  before approval
+- Merge MUST require passing CI (tests + linting)
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes all informal practices and ad-hoc
+conventions. All contributors MUST follow these principles.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+- Amendments require: a documented rationale, review by at least
+  one other contributor, and a version bump to this file
+- Version follows semantic versioning: MAJOR for principle
+  removal/redefinition, MINOR for additions, PATCH for wording
+- Complexity additions MUST be justified against the performance
+  and code quality principles
+- Disputes default to whichever interpretation best serves boot
+  time reduction without sacrificing safety
+
+**Version**: 1.0.0 | **Ratified**: 2026-05-14 | **Last Amended**: 2026-05-14
