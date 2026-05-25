@@ -61,6 +61,24 @@ After 12 cold boot captures (grabserial with timestamps), we identified **two in
 - **Cause**: After hard power-cut, the NVMe SSD needs extra time for internal FTL recovery before it can respond to PCIe enumeration. UEFI retries device connection until the NVMe is ready.
 - **Pattern**: Durations are ~2x and ~4x of the base value, suggesting a retry mechanism with ~1s timeout intervals.
 
+### What "FTL Recovery" Means
+
+The SSD controller maintains its own Flash Translation Layer (FTL), which is the internal
+mapping between host-visible logical block addresses and the actual NAND flash pages and
+erase blocks on the device. That internal metadata includes mapping tables, free-block
+state, wear-leveling state, and journal or checkpoint information used to keep the drive
+consistent.
+
+After a clean shutdown, the SSD usually has time to commit that metadata to a consistent
+state, so the next boot is fast. After a hard power-cut, the SSD may have lost power while
+it was updating those structures. On the next power-up, the controller has to scan,
+validate, and possibly replay or discard incomplete metadata updates before it can safely
+expose the NVMe namespace.
+
+That recovery is internal to the SSD firmware. It is not ext4 journal replay and it happens
+before Linux starts. While the SSD is doing this work, the NVMe controller may keep
+`CSTS.RDY=0`, and UEFI waits in its normal readiness polling loop.
+
 ## Instrumented Boot Analysis (Definitive)
 
 UEFI was instrumented with `[BT]` AsciiPrint timing markers at four key points in
