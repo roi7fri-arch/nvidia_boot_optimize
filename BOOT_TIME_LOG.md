@@ -9,22 +9,25 @@
 
 ---
 
-## Current Best: ~7.0 seconds (warm reboot → interactive shell) ✓
+## Current Best: ~3.95s BPMP→Shell (cold boot, clean shutdown) ✓
 
 | Stage | Time | Notes |
 |-------|------|-------|
-| Shutdown (SIGKILL → reset) | ~2,300 ms | BusyBox `reboot` |
-| Power-on → BPMP ready | ~340 ms | MB1/MB2 log_level=0 |
-| BPMP → OP-TEE → UEFI start | ~480 ms | |
-| UEFI DXE+BDS → L4TLauncher | ~1,440 ms | Midboot defconfig, QuickBoot |
-| L4TLauncher → kernel start | ~900 ms | Direct Boot (no GRUB fallback) |
-| **Firmware total (cold)** | **~3,160 ms** | |
-| Kernel start → NVMe ready | ~560 ms | Single PCIe controller, lazy BPMP clocks |
-| NVMe → root mounted → /sbin/init | ~90 ms | ext4, rootwait |
-| Init → interactive shell | ~16 ms | Only S01seedrng |
-| **Kernel+init total** | **~666 ms** | |
-| **Total warm reboot** | **~7,000 ms** | Including ~2.3s shutdown |
-| **Total cold boot (power-on → shell)** | **~4,700 ms** | |
+| Power-on → BPMP start | ~320 ms (best) | MB1/MB2 log_level=0; varies 304-1890ms (DRAM training) |
+| BPMP → OP-TEE → UEFI start | ~464 ms | OP-TEE 4.2 init |
+| UEFI DXE (midboot, NVMe enum) | ~1,057 ms | VarStore + PCIe/NVMe DXE dispatch |
+| UEFI DXE dispatch → BDS entry | ~671 ms | NVMe CSTS.RDY polling |
+| UEFI BDS (EndOfDxe+Boot) | ~256 ms | MM notification, no ConnectAll |
+| Post-BDS → kernel → shell | ~1,150 ms | L4TLauncher Direct Boot, kernel, init |
+| **Firmware total (BPMP→Shell)** | **~3,952 ms** | Measured via grabserial (±16ms) |
+| **Total cold boot (power-on → shell)** | **~4,270 ms** | Best case (short pre-BPMP) |
+| **Total cold boot (worst pre-BPMP)** | **~5,840 ms** | Long DRAM training |
+
+### After hard power-cut (NVMe FTL recovery):
+| Stage | Time | Notes |
+|-------|------|-------|
+| **Firmware total (BPMP→Shell)** | **~5,168 ms** | +1.2s NVMe FTL recovery |
+| **Worst case (4s FTL + long DRAM)** | **~9,900 ms** | Rare, only after severe power-cut |
 
 ---
 
@@ -98,17 +101,25 @@
 **Result:**
 - Kernel boot: saved **~2.5s** combined
 
-### Round 5: UEFI midboot defconfig + QuickBoot (2026-05-17)
+### Round 5: UEFI midboot defconfig + QuickBoot + PCIe polling + MDEPKG_NDEBUG (2026-05-17)
 
-**Changes:**
+**Changes (all in one commit: `fast-boot-v1`):**
 1. **Custom `t23x_midboot.defconfig`** — disables USB, display, network, SATA, eMMC drivers in UEFI
 2. **QuickBoot + ConnectRecursive** (`PlatformBm.c`):
    - Replaced `EfiBootManagerConnectAll()` with targeted `ConnectRecursive()` on PCI root bridge only
    - Boots NVMe path without scanning all buses
-3. **Boot timeout = 0** — no delay waiting for hotkeys
+3. **PCIe link-up polling** (`PcieControllerDxe.c`):
+   - Replaced fixed `DeviceDiscoveryThreadMicroSecondDelay(200000)` (200ms sleep) with 1ms polling loop
+   - Polls `PCI_EXP_LNKCTL_STATUS_DLL_ACTIVE` bit every 1ms, timeout at 200ms
+   - NVMe link typically up in <10ms, saving ~190ms
+4. **MDEPKG_NDEBUG for RELEASE** (`NVIDIA.common.dsc.inc`):
+   - Added `GCC:RELEASE_*_*_CC_FLAGS = -DMDEPKG_NDEBUG` — eliminates ALL `DEBUG()` macro calls at compile time
+   - Also added `-Wno-unused-variable -Wno-unused-but-set-variable` to suppress resulting warnings
+   - Removes thousands of string formatting and serial output operations from the binary
+5. **Boot timeout = 0** — no delay waiting for hotkeys
 
 **Result:**
-- UEFI DXE+BDS: saved **~1.0s**
+- UEFI DXE+BDS: saved **~1.5s** combined (polling + no debug output)
 
 ### Round 6: UEFI boot flow cleanup (2026-05-17)
 
@@ -144,6 +155,54 @@
 - Added `quiet loglevel=0` — suppress all kernel console output
 - Reduced serial I/O overhead during boot
 
+### Round 9: Kernel PCIe warm-handoff (2026-05-24)
+
+**Changes (`drivers/pci/controller/dwc/pcie-tegra194.c`):**
+- If UEFI already initialized the PCIe link (link is up when Linux probes), **skip PERST# assertion and LTSSM re-enable entirely**
+- Checks `APPL_LINK_STATUS_RDLH_LINK_UP` — if set, returns immediately
+- This preserves the NVMe controller state from UEFI, so the NVMe firmware stays in SRAM and doesn't need a cold reset
+
+**Why this matters:**
+- Without this patch, Linux re-asserts PERST# → NVMe does full cold reset → waits for CSTS.RDY again (~500ms+)
+- With this patch, NVMe stays ready from UEFI → kernel NVMe probe is much faster
+- Enables the Round 10 optimization (NVMe warm reset instead of cold reset)
+
+**Result:**
+- PCIe NVMe ready time: saved **~300ms** (avoids redundant link training)
+
+### Round 10: Kernel NVMe warm-handoff (2026-05-24)
+
+**Changes (`drivers/nvme/host/pci.c`):**
+- If `CC.EN` (Command/Control Enable) is already set when Linux NVMe driver probes, the controller was pre-enabled by UEFI
+- Wait for `CSTS.RDY=1` (using CAP.TO-based timeout), then proceed with a **warm disable→enable cycle** instead of cold enable
+- A warm reset is much faster because NVMe controller firmware stays in SRAM — no full firmware reload from flash
+
+**Code:**
+```c
+if (readl(dev->bar + NVME_REG_CC) & NVME_CC_ENABLE) {
+    /* Wait for pre-enabled controller to become ready */
+    while (!(readl(dev->bar + NVME_REG_CSTS) & NVME_CSTS_RDY)) {
+        if (time_after(jiffies, timeout)) break;
+        usleep_range(1000, 2000);
+    }
+}
+/* Then does standard disable→enable which is fast on warm path */
+```
+
+**Result:**
+- NVMe probe time: saved **~200ms** (warm reset vs cold reset)
+
+### Round 11: Cold boot variance investigation (2026-05-25)
+
+**Discovery (not an optimization, but important finding):**
+- Instrumented UEFI PlatformBm.c with `[BT]` AsciiPrint timing markers at 4 key BDS points
+- Captured boots after clean shutdown and after hard power-cut
+- **Definitive finding**: 100% of variance is in DXE dispatch phase (NVMe CSTS.RDY polling)
+- After hard power-cut: NVMe SSD needs 1-4s extra for FTL metadata recovery
+- `ConnectRecursive` in BDS takes <1ms in ALL cases (devices already connected during DXE)
+- **Conclusion**: Variance is NVMe hardware behavior — unfixable in software
+- **Mitigation**: Always do clean shutdown, or use SSD with Power-Loss Protection (PLP)
+
 ---
 
 ## Boot Flow Diagram
@@ -177,11 +236,15 @@ Power-On
 | `disable-usb-net.dtbo` | `kernel/dtb/` & `bootloader/` | Disable unused PCIe/USB/display/ethernet |
 | `p3767.conf.common` | L4T root | `OVERLAY_DTB_FILE` includes both overlays |
 | `uefi_jetson.bin` | `bootloader/` | Built from t23x_midboot defconfig (3.1MB) |
+| `NVIDIA.common.dsc.inc` | `edk2-nvidia/Platform/NVIDIA/` | MDEPKG_NDEBUG for RELEASE builds |
+| `PcieControllerDxe.c` | `edk2-nvidia/Silicon/NVIDIA/Drivers/PcieDWControllerDxe/` | PCIe link-up polling (1ms intervals) |
 | `L4TLauncher.c` | `edk2-nvidia/Silicon/NVIDIA/Application/L4TLauncher/` | Boot mode default=DIRECT, no GRUB fallback |
 | `PlatformBm.c` | `edk2-nvidia/Silicon/NVIDIA/Library/PlatformBootManagerLib/` | QuickBoot, ConnectRecursive, no boot menu |
 | `clk-bpmp.c` | `linux-custom/drivers/clk/tegra/` | Lazy on-demand clock registration |
 | `bpmp.c` | `linux-custom/drivers/firmware/tegra/` | Debugfs init skipped |
-| `reboot-to-recovery` | NVMe `/usr/sbin/` | 424-byte static ARM64 binary for APX entry |
+| `pcie-tegra194.c` | `linux-custom/drivers/pci/controller/dwc/` | PCIe warm-handoff (skip PERST# if link up) |
+| `pci.c` | `linux-custom/drivers/nvme/host/` | NVMe warm-handoff (CC.EN pre-enabled path) |
+
 | `startup.nsh` | NVMe `/` (root) | Fallback: `FS0:\L4TLauncher.efi` |
 | `extlinux.conf` | NVMe `/boot/extlinux/` | Kernel boot config |
 | `rcS` | NVMe `/etc/init.d/` | Modified: skips non-executable scripts |
@@ -196,7 +259,6 @@ Single partition, GPT:
 /boot/dtb                      — 250 KB tegra234-p3768-0000+p3767-0005-nv.dtb
 /boot/extlinux/extlinux.conf   — L4TLauncher boot config
 /startup.nsh                   — UEFI Shell auto-boot script (fallback)
-/usr/sbin/reboot-to-recovery   — Software APX mode entry (424 bytes)
 ```
 
 ### extlinux.conf
@@ -239,9 +301,6 @@ sudo ./flash.sh --qspi-only --no-systemimg -k A_cpu-bootloader jetson-orin-nano-
 # Partial: BPMP DTB only:
 sudo ./flash.sh --qspi-only --no-systemimg -k A_bpmp-fw-dtb jetson-orin-nano-devkit-nvme nvme0n1p1
 
-# Enter recovery mode from running Linux:
-reboot-to-recovery
-
 # Verify APX mode:
 lsusb | grep "0955:7523"
 ```
@@ -256,47 +315,75 @@ lsusb | grep "0955:7523"
 | L4TLauncher finds wrong partition | Old 15-partition GPT had recovery initrd | Clean single-partition NVMe |
 | 5-second Shell delay | Shell PCD hardcoded delay | Boot0002 bypasses Shell entirely |
 | Flash probe failures | Zombie tegrarcm_v2 processes | Always kill before flash |
-| `devmem` PMC writes blocked | `CONFIG_STRICT_DEVMEM=y` | Use `reboot-to-recovery` binary instead |
+| `devmem` PMC writes blocked | `CONFIG_STRICT_DEVMEM=y` | Hardware limitation (use physical jumper for recovery) |
 | BPMP debugfs takes 1.6s | `tegra_bpmp_init_debugfs()` IPC round-trips | Skip debugfs init entirely |
 | BPMP clocks take 0.9s | All 465 clocks registered at probe via IPC | Lazy on-demand registration |
 | UEFI tries GRUB first | `L4TBootMode` NV var missing → default GRUB | Changed default to DIRECT |
 | "Failed to validate rootfs" | NVIDIA A/B slot partition missing in Buildroot | Suppressed error print (non-fatal) |
 | ESC/F11/s/Enter on serial | `DisplaySystemAndHotkeyInformation()` always prints | Removed Print calls |
 | Init scripts "Permission denied" | `rcS` runs all `S*` files without `-x` check | Added `[ ! -x "$i" ] && continue` |
+| PCIe link-up wastes 200ms | Fixed `MicroSecondDelay(200000)` in UEFI | 1ms polling loop, exits on DLL_ACTIVE |
+| Linux re-trains PCIe link | Kernel asserts PERST# even if UEFI link is up | Skip PERST# if `RDLH_LINK_UP` set |
+| Linux cold-resets NVMe | Kernel does full disable+enable cycle | Detect CC.EN, do warm reset instead |
+| UEFI DEBUG() serial spam | Thousands of DEBUG() calls in RELEASE build | `-DMDEPKG_NDEBUG` eliminates at compile time |
+| Cold boot +2-4s variance | NVMe FTL recovery after hard power-cut | Hardware limitation; use clean shutdown |
 
 ## Known Limitations
 
 - Display overlay (`display@13800000` disabled) suppresses UEFI combined-uart serial output; serial resumes at kernel
-- BusyBox `reboot` doesn't support `forced-recovery` argument — use `/usr/sbin/reboot-to-recovery`
 - `devmem` writes to PMC scratch registers are blocked by `CONFIG_STRICT_DEVMEM=y`
 - The `uefi_jetson_minimal.bin` (1.6MB) lacks PCIe/NVMe drivers — cannot boot from NVMe
 - UEFI Shell PCD delay (5s) is compile-time — cannot be changed without rebuilding UEFI
 - Boot0002 EFI variable is volatile — a full QSPI reflash resets it (must re-create from Linux after flash)
 
-## Cold Boot Timing Variance (~2s)
+## Cold Boot Timing Variance
 
-Cold boot times alternate between **~6.5s** and **~8.5s** depending on power-off duration.
+Cold boot times vary depending on two factors:
+
+### Variance Source 1: Pre-BPMP (304ms – 1890ms)
 
 **Root cause: MB1 LPDDR5 DRAM training**
 
 On Tegra T234, MB1 stores DRAM training results in PMC scratch registers. These are powered by the board's always-on rail capacitors (no backup battery on DevKit):
 
-| Scenario | What happens | Boot time |
+| Scenario | What happens | Pre-BPMP time |
 |----------|-------------|-----------|
-| Quick power cycle (caps still charged) | PMC scratch preserved → fast DRAM path | **~6.5s** |
-| Long power off (caps fully drained, >3-5s) | PMC scratch lost → full DRAM training | **~8.5s** |
-| Warm reboot (`reboot` command) | Never loses power → always fast | **~7.0s** (incl. 2.3s shutdown) |
+| Quick power cycle (caps still charged) | PMC scratch preserved → fast DRAM path | **~320 ms** |
+| Long power off (caps fully drained, >3-5s) | PMC scratch lost → full DRAM training | **~1,500-1,890 ms** |
+| Warm reboot (`reboot` command) | Never loses power → always fast | **~320 ms** |
 
-**Evidence:** 5 consecutive warm reboots showed ±25ms jitter. From BPMP onwards all timing is deterministic. The variance is entirely in MB1/MB2 before first serial output.
+**Not fixable in software.** On a production board with a coin cell battery or supercapacitor on the PMC/always-on rail, cold boot would always hit the fast path.
 
-**Not fixable in software.** On a production board with a coin cell battery or supercapacitor on the PMC/always-on rail, cold boot would always hit the fast 6.5s path.
+### Variance Source 2: NVMe FTL Recovery (after hard power-cut only)
+
+**Root cause: NVMe SSD internal FTL metadata recovery**
+
+After an unclean power loss (unplug while running), the NVMe SSD must recover its Flash Translation Layer mapping tables before it can signal `CSTS.RDY=1`. This adds 0-4 seconds to the UEFI DXE dispatch phase.
+
+| Scenario | Extra delay | Total BPMP→Shell |
+|----------|-------------|------------------|
+| Clean shutdown | 0ms | **3,952 ms** (consistent ±16ms) |
+| Hard power-cut (mild) | +1,122 ms | **~5,074 ms** |
+| Hard power-cut (severe) | +3,136 ms | **~7,088 ms** |
+
+**Confirmed via instrumented boot analysis** (AsciiPrint markers in PlatformBm.c):
+- `ConnectRecursive` takes <1ms in ALL cases
+- 100% of variance is in NVMe DXE driver polling `CSTS.RDY` during DXE dispatch
+- Variance is quantized at ~2s increments (0, 1, or 2 FTL recovery cycles)
+
+**Not fixable in software.** Mitigation: clean shutdown before power removal, or use SSD with PLP (Power-Loss Protection) capacitors.
 
 ## Future Optimization Opportunities
 
 - [ ] Kernel: LZ4 compressed Image for faster load from NVMe
 - [ ] Kernel: disable unused subsystems (sound, media, crypto) at compile time
-- [ ] PCIe: tune NVMe link training timeout (currently ~560ms)
 - [ ] Init: replace BusyBox init with direct `/bin/sh` exec (skip rcS entirely)
 - [ ] Consider: store kernel in QSPI flash to eliminate NVMe dependency
 - [ ] UEFI: reduce OP-TEE/StMM init time (~1.4s currently)
 - [ ] Shutdown: faster reboot path (skip SIGTERM grace period)
+- [ ] Consider: SSD with Power-Loss Protection (PLP) to eliminate FTL recovery variance
+
+### Confirmed Not Feasible
+- ~~PCIe: tune NVMe link training timeout~~ — Already optimized (polling at 1ms, <10ms typical)
+- ~~NVMe cold boot variance~~ — Hardware limitation (SSD FTL recovery), unfixable in software
+- ~~Pre-BPMP variance~~ — Silicon behavior (DRAM training), requires hardware mod (coin cell/supercap)

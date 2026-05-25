@@ -1,5 +1,8 @@
 # Cold Boot Variance Analysis
 
+> **NOTE:** This file contains early investigation notes. For the **definitive results** with
+> instrumented boot analysis, see [cold-boot-variance-report.md](cold-boot-variance-report.md).
+
 ## Problem Statement
 
 On cold boots (power-cycle), there is a **~1.2-1.7s variance** in total boot time that does NOT occur on warm reboots (`reboot -f`).
