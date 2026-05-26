@@ -383,3 +383,135 @@ Scripts **kept active**:
 | `Linux_for_Tegra/kernel/dtb/disable-usb-net.dtbo` | DT overlay | Custom |
 | `nvidia_boot_optimize/scripts/prepare-nvme.sh` | Deploy script | Custom |
 | `nvidia_boot_optimize/scripts/flash-qspi.sh` | Flash script | Custom |
+
+---
+
+## 10. CUDA Runtime Support (added 2026-05-26)
+
+**Goal:** Enable pre-compiled CUDA applications without on-device compilation.  
+**Boot time impact:** None measurable (~3.88s with CUDA vs ~3.95s without).
+
+### 10.1 Kernel Config Changes for OOT Module Support
+
+| Config | Value | Required By |
+|--------|-------|-------------|
+| `CONFIG_LOCALVERSION` | `"-tegra"` | Module vermagic match |
+| `CONFIG_MODVERSIONS` | **disabled** | Skip CRC checks (modules pre-built) |
+| `CONFIG_FTRACE` | y | nvgpu.ko |
+| `CONFIG_DYNAMIC_FTRACE` | y | nvgpu.ko |
+| `CONFIG_DYNAMIC_FTRACE_WITH_REGS` | y | nvgpu.ko |
+| `CONFIG_EVENT_TRACING` | y | nvgpu.ko |
+| `CONFIG_BPF_SYSCALL` | y | nvgpu.ko |
+| `CONFIG_BPF_EVENTS` | y | nvgpu.ko |
+| `CONFIG_PERF_EVENTS` | y | nvgpu.ko |
+| `CONFIG_DEVFREQ_THERMAL` | y | nvgpu.ko |
+| `CONFIG_NAMESPACES` | y | nvmap.ko (`from_kuid`) |
+| `CONFIG_USER_NS` | y | nvmap.ko (`from_kuid`) |
+| `CONFIG_TEGRA_HSIERRRPTINJ` | y | host1x.ko |
+| `CONFIG_TEGRA_HOST1X` | **disabled** | Avoid conflict with OOT host1x.ko |
+
+### 10.2 Kernel Stub Module
+
+**File:** `output/build/linux-custom/drivers/platform/tegra/nvidia_stubs.c`
+
+Provides symbols expected by prebuilt OOT modules that aren't in a minimal kernel:
+
+```c
+// Bus type for host1x context isolation
+struct bus_type host1x_context_device_bus_type = { .name = "host1x_context" };
+EXPORT_SYMBOL(host1x_context_device_bus_type);
+
+// Registered at postcore_initcall to be available before host1x.ko loads
+static int __init host1x_context_device_bus_init(void) {
+    return bus_register(&host1x_context_device_bus_type);
+}
+postcore_initcall(host1x_context_device_bus_init);
+
+// NvSciIpc stubs (nvmap.ko references these but doesn't need them for CUDA)
+int NvSciIpcEndpointMapVuid(...) { return -ENOSYS; }
+EXPORT_SYMBOL(NvSciIpcEndpointMapVuid);
+int NvSciIpcEndpointValidateAuthTokenLinuxCurrent(...) { return -ENOSYS; }
+EXPORT_SYMBOL(NvSciIpcEndpointValidateAuthTokenLinuxCurrent);
+```
+
+### 10.3 ARM64 `_mcount` Stub
+
+**File:** `output/build/linux-custom/arch/arm64/kernel/entry-ftrace.S`
+
+```asm
+SYM_FUNC_START(_mcount)
+    ret
+SYM_FUNC_END(_mcount)
+EXPORT_SYMBOL(_mcount)
+```
+
+Required because `CONFIG_DYNAMIC_FTRACE=y` expects an `_mcount` symbol, but we don't
+actually need function tracing — just the infrastructure symbols for nvgpu.ko.
+
+### 10.4 OOT GPU Modules
+
+Extracted from `Linux_for_Tegra/kernel/kernel_oot_modules.tbz2`:
+
+| Module | Size | Purpose |
+|--------|------|---------|
+| `host1x.ko` | 164 KB | Host1x bus driver |
+| `host1x-nvhost.ko` | 33 KB | Host1x NVIDIA host interface |
+| `mc-utils.ko` | 16 KB | Memory controller utilities |
+| `nvmap.ko` | 193 KB | NVIDIA memory allocator |
+| `nvgpu.ko` | 2.6 MB | GPU driver (ga10b) |
+
+Load order enforced by `S02nvidia`: host1x → host1x-nvhost → mc-utils → nvmap → nvgpu
+
+### 10.5 Userspace Libraries
+
+From `nvidia-l4t-core` and `nvidia-l4t-cuda` debs:
+
+| Library | Purpose |
+|---------|---------|
+| `libcuda.so.1.1` | CUDA driver API |
+| `libnvrm_gpu.so` | GPU resource manager |
+| `libnvos.so` | NVIDIA OS abstraction |
+| `libnvrm_mem.so` | Memory management |
+| `libnvdla_runtime.so` | DLA runtime |
+| + ~35 more .so files | Supporting libs |
+
+Installed to `/usr/lib/aarch64-linux-gnu/nvidia/`. At boot, `S02nvidia` creates
+symlinks in `/usr/lib/` (Buildroot has no `ldconfig`).
+
+### 10.6 Boot Init Script
+
+**File:** `overlay_fs/etc/init.d/S02nvidia`
+
+```bash
+#!/bin/sh
+case "$1" in
+  start)
+    insmod /usr/lib/modules/5.15.185-tegra/updates/host1x.ko
+    insmod /usr/lib/modules/5.15.185-tegra/updates/host1x-nvhost.ko
+    insmod /usr/lib/modules/5.15.185-tegra/updates/mc-utils.ko
+    insmod /usr/lib/modules/5.15.185-tegra/updates/nvmap.ko
+    insmod /usr/lib/modules/5.15.185-tegra/updates/nvgpu.ko
+    for f in /usr/lib/aarch64-linux-gnu/nvidia/*.so*; do
+      ln -sf "$f" /usr/lib/$(basename "$f")
+    done
+    ;;
+esac
+```
+
+### 10.7 Device Nodes Created
+
+| Device | Created By |
+|--------|-----------|
+| `/dev/nvgpu/igpu0` | nvgpu.ko |
+| `/dev/nvmap` | nvmap.ko |
+| `/dev/nvhost-gpu` | host1x-nvhost.ko |
+
+### 10.8 Updated Boot Timeline
+
+| Phase | Time (ms) | Notes |
+|---|---|---|
+| Power-on → BPMP start | ~320 | Unchanged |
+| BPMP → UEFI → BDS | ~1,500 | Unchanged |
+| BDS → kernel → init | ~1,150 | Unchanged |
+| Init scripts (incl. S02nvidia) | ~50 | Module load is fast |
+| **Total (BPMP → shell)** | **~3,880** | Verified 2026-05-26 |

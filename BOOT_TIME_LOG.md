@@ -9,7 +9,7 @@
 
 ---
 
-## Current Best: ~3.95s BPMP→Shell (cold boot, clean shutdown) ✓
+## Current Best: ~3.88s BPMP→Shell (with CUDA support, warm reboot) ✓
 
 | Stage | Time | Notes |
 |-------|------|-------|
@@ -18,10 +18,14 @@
 | UEFI DXE (midboot, NVMe enum) | ~1,057 ms | VarStore + PCIe/NVMe DXE dispatch |
 | UEFI DXE dispatch → BDS entry | ~671 ms | NVMe CSTS.RDY polling |
 | UEFI BDS (EndOfDxe+Boot) | ~256 ms | MM notification, no ConnectAll |
-| Post-BDS → kernel → shell | ~1,150 ms | L4TLauncher Direct Boot, kernel, init |
-| **Firmware total (BPMP→Shell)** | **~3,952 ms** | Measured via grabserial (±16ms) |
-| **Total cold boot (power-on → shell)** | **~4,270 ms** | Best case (short pre-BPMP) |
+| Post-BDS → kernel → shell | ~1,150 ms | L4TLauncher Direct Boot, kernel, init + GPU modules |
+| **Firmware total (BPMP→Shell)** | **~3,880 ms** | Measured via warm reboot (±16ms) |
+| **Total cold boot (power-on → shell)** | **~4,200 ms** | Best case (short pre-BPMP) |
 | **Total cold boot (worst pre-BPMP)** | **~5,840 ms** | Long DRAM training |
+
+### CUDA runtime overhead: ~0ms
+GPU modules (host1x, host1x-nvhost, mc-utils, nvmap, nvgpu) load during init with
+no measurable impact on boot time. Library symlinks created in S02nvidia.
 
 ### After hard power-cut (NVMe FTL recovery):
 | Stage | Time | Notes |
